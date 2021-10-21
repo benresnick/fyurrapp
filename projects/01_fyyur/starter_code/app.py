@@ -114,49 +114,54 @@ def index():
 
 @app.route('/venues')
 def venues():
-  #  replace with real venues data.
-  #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
+
     data = []
-    areas = db.session.query(Venue.city, Venue.state).distinct(Venue.city, Venue.state).order_by('state').all()
-    for area in areas:
-        venues = Venue.query.filter(Venue.state == area.state).filter( Venue.city == area.city).order_by('name').all()
-        venue_data = []
+
+    #Define each distinct area
+    towns = db.session.query(Venue.city, Venue.state).distinct(Venue.city, Venue.state).order_by('state').all()
+    #loop through each area
+    for town in towns:
+        #define venue(s) within area/venue with same city and state
+        venues = Venue.query.filter(Venue.state == town.state).filter( Venue.city == town.city).order_by('name').all()
+        #add to the JSON with city,state, and venue data
         data.append({
-            'city': area.city,
-            'state': area.state,
-            'venues': venue_data
+            'city': town.city,
+            'state': town.state,
+            'venues': venues
         })
-        for venue in venues:
-            shows = Show.query.filter_by(venue_id=venue.id).order_by('id').all()
-            venue_data.append({
-                'id': venue.id,
-                'name': venue.name,
-                'num_upcoming_shows': len(shows)  #shows is still being properly implimented this is my
-            })
     return render_template('pages/venues.html', areas=data)
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
-  # implement search on artists with partial string search. Ensure it is case-insensitive.
+  # implement search on venues with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
+    #define search term
     search_term = request.form.get('search_term', None)
+    #search through using case-insentisive filter
     venue_list = Venue.query.filter(
         Venue.name.ilike("%{}%".format(search_term))).all()
+    count = Venue.query.filter(
+        Venue.name.ilike("%{}%".format(search_term))).count()
+    #create response JSON object with count and data equaling the venue_list
     response = {
-        "count": len(venue_list),
+        "count": count,
         "data": venue_list
     }
-    return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+    return render_template('pages/search_venues.html', results=response, search_term=search_term)
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
     # shows the venue page with the given venue_id
     # replaced with real venue data from the venues table, using venue_id
+    #need to first define venue
     venue = Venue.query.get(venue_id)
+    #only data that the venue doesn't provide is show data so
+    #need to find shows for the venue
     shows_query = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).all()
     past_shows = []
     upcoming_shows = []
     for show in shows_query:
+        #create a show JSON with artist and time information
         artist = Artist.query.get(show.artist_id)
         temp_show = {
             'artist_id' : show.artist_id,
@@ -164,10 +169,12 @@ def show_venue(venue_id):
             'artist_image_link': artist.image_link,
             'start_time': show.start_time.strftime('%Y-%m-%d %H:%M:%S')
         }
+        #add the JSON to either Upcoming or Past shows
         if show.start_time <= datetime.now():
             past_shows.append(temp_show)
         else:
             upcoming_shows.append(temp_show)
+    #return the venue data along with show data and counts for them
     data = {
         'id': venue_id,
         'name': venue.name,
@@ -282,8 +289,10 @@ def search_artists():
   search_term = request.form.get('search_term', None)
   artist_list = Artist.query.filter(
       Artist.name.ilike("%{}%".format(search_term))).all()
+  count = Artist.query.filter(
+      Artist.name.ilike("%{}%".format(search_term))).count()
   response = {
-      "count": len(artist_list),
+      "count": count,
       "data": artist_list
   }
 
